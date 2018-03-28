@@ -1,5 +1,6 @@
 package io.ktor.client.request
 
+import com.sun.xml.internal.ws.api.pipe.*
 import io.ktor.client.*
 import io.ktor.client.call.*
 import io.ktor.pipeline.*
@@ -34,8 +35,18 @@ class HttpRequestPipeline : Pipeline<Any, HttpRequestBuilder>(Before, State, Tra
         val Render = PipelinePhase("Render")
 
         /**
-         * Send request to remote server
+         * Execute [HttpSendPipeline]
          */
         val Send = PipelinePhase("Send")
+    }
+}
+
+class HttpSendPipeline : Pipeline<Any, HttpRequestBuilder>(Engine) {
+
+    companion object Phases {
+        /**
+         * Send request to remote server
+         */
+        val Engine = PipelinePhase("Engine")
     }
 }

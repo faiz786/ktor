@@ -38,6 +38,12 @@ class HttpResponsePipeline : Pipeline<HttpResponseContainer, HttpClientCall>(Rec
     }
 }
 
+class HttpReceivePipeline : Pipeline<HttpResponse, HttpClientCall>(Response) {
+    companion object Phases {
+        val Response = PipelinePhase("Response")
+    }
+}
+
 /**
  * Class representing a typed [response] with an attached [expectedType].
  */

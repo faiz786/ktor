@@ -1,5 +1,6 @@
 package io.ktor.client
 
+import com.sun.xml.internal.ws.api.pipe.*
 import io.ktor.client.call.*
 import io.ktor.client.engine.*
 import io.ktor.client.features.*
@@ -42,14 +43,19 @@ class HttpClient private constructor(
     /**
      * Pipeline used for sending request
      */
-    val sendPipeline = HttpSendChain { requestData: HttpRequestData ->
-        val call = HttpClientCall(this)
-        val (request, response) = engine.execute(call, requestData)
-        call.request = request
-        call.response = response
-
-        call
+    val sendPipeline = HttpSendPipeline().apply {
+        intercept(HttpSendPipeline.Engine) {
+            val call = HttpClientCall(this@HttpClient)
+            val (request, response) = engine.execute(call, context.build())
+            call.request = request
+            call.response = response
+        }
     }
+
+    /**
+     * Pipeline used for receiving request
+     */
+    val receivePipeline = HttpReceivePipeline()
 
     /**
      * Typed attributes used as a lightweight container for this client.
