@@ -40,7 +40,13 @@ class HttpResponsePipeline : Pipeline<HttpResponseContainer, HttpClientCall>(Rec
 
 class HttpReceivePipeline : Pipeline<HttpResponse, HttpClientCall>(Response) {
     companion object Phases {
+
         val Response = PipelinePhase("Response")
+
+        /**
+         * Latest response pipeline phase
+         */
+        val After = PipelinePhase("After")
     }
 }
 

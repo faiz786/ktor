@@ -1,6 +1,5 @@
 package io.ktor.client
 
-import com.sun.xml.internal.ws.api.pipe.*
 import io.ktor.client.call.*
 import io.ktor.client.engine.*
 import io.ktor.client.features.*
@@ -21,6 +20,7 @@ class HttpClient private constructor(
         private val engine: HttpClientEngine,
         block: suspend HttpClientConfig.() -> Unit = {}
 ) : Closeable {
+
     /**
      * Constructs an asynchronous [HttpClient] using the specified [engineFactory]
      * and an optional [block] for configuring this client.
@@ -33,7 +33,13 @@ class HttpClient private constructor(
     /**
      * Pipeline used for processing all the requests sent by this client.
      */
-    val requestPipeline = HttpRequestPipeline()
+    val requestPipeline = HttpRequestPipeline().apply {
+        // default send scenario
+        intercept(HttpRequestPipeline.Send) { builder ->
+            val call = sendPipeline.execute(context, TODO()) as HttpClientCall
+            proceedWith(receivePipeline.execute(call, call.response))
+        }
+    }
 
     /**
      * Pipeline used for processing all the responses sent by the server.
@@ -41,7 +47,7 @@ class HttpClient private constructor(
     val responsePipeline = HttpResponsePipeline()
 
     /**
-     * Pipeline used for sending request
+     * Pipeline used for sending the request
      */
     val sendPipeline = HttpSendPipeline().apply {
         intercept(HttpSendPipeline.Engine) {
@@ -49,6 +55,8 @@ class HttpClient private constructor(
             val (request, response) = engine.execute(call, context.build())
             call.request = request
             call.response = response
+
+            proceedWith(call)
         }
     }
 
@@ -78,13 +86,8 @@ class HttpClient private constructor(
     /**
      * Creates a new [HttpRequest] from a request [data] and a specific client [call].
      */
-    suspend fun execute(builder: HttpRequestBuilder): HttpClientCall {
-        val received = requestPipeline.execute(builder, builder.body)
-        builder.body = received as? OutgoingContent
-                ?: throw NoTransformationFound(received::class, OutgoingContent::class)
-
-        return sendPipeline.execute(builder.build())
-    }
+    suspend fun execute(builder: HttpRequestBuilder): HttpClientCall =
+            requestPipeline.execute(builder, builder.body) as HttpClientCall
 
     /**
      * Returns a new [HttpClient] copying this client configuration,

@@ -1,9 +1,11 @@
 package io.ktor.client.features
 
 import io.ktor.client.*
-import io.ktor.client.engine.*
+import io.ktor.client.call.*
 import io.ktor.client.request.*
+import io.ktor.client.response.*
 import io.ktor.http.*
+import io.ktor.pipeline.*
 import io.ktor.util.*
 
 /**
@@ -20,25 +22,28 @@ class HttpRedirect(
     companion object Feature : HttpClientFeature<Config, HttpRedirect> {
         override val key: AttributeKey<HttpRedirect> = AttributeKey("HttpRedirect")
 
+        private val Redirect = PipelinePhase("RedirectPhase")
+
         override suspend fun prepare(block: Config.() -> Unit): HttpRedirect =
                 HttpRedirect(Config().apply(block).maxJumps)
 
         override fun install(feature: HttpRedirect, scope: HttpClient) {
-            scope.sendPipeline.intercept(HttpSendChain.Validation) { execute, requestData ->
-                var request = requestData
+            scope.requestPipeline.insertPhaseBefore(HttpRequestPipeline.Send, Redirect)
+            scope.requestPipeline.intercept(Redirect) {
                 repeat(feature.maxJumps) {
-                    val call = execute(request)
-                    if (!call.response.status.isRedirect()) return@intercept call
-                    val location = call.response.headers[HttpHeaders.Location]
-                            ?: throw RedirectException(request, "Redirect location is missing")
+                    val call = scope.sendPipeline.execute(context, Unit) as HttpClientCall
 
-                    request = HttpRequestBuilder().apply {
-                        takeFrom(requestData)
-                        url.takeFrom(location)
-                    }.build()
+                    if (!call.response.status.isRedirect()) {
+                        proceedWith(call)
+                        finish()
+                        return@repeat
+                    }
+
+                    val location = call.response.headers[HttpHeaders.Location]
+                    location?.let { context.url.takeFrom(it) }
                 }
 
-                throw RedirectException(request, "Redirect limit ${feature.maxJumps} exceeded")
+                throw RedirectException(context.build(), "Redirect limit ${feature.maxJumps} exceeded")
             }
         }
     }

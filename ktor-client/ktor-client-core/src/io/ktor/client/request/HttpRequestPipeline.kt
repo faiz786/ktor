@@ -1,6 +1,5 @@
 package io.ktor.client.request
 
-import com.sun.xml.internal.ws.api.pipe.*
 import io.ktor.client.*
 import io.ktor.client.call.*
 import io.ktor.pipeline.*
@@ -41,9 +40,13 @@ class HttpRequestPipeline : Pipeline<Any, HttpRequestBuilder>(Before, State, Tra
     }
 }
 
-class HttpSendPipeline : Pipeline<Any, HttpRequestBuilder>(Engine) {
+class HttpSendPipeline : Pipeline<Any, HttpRequestBuilder>(Before, Engine) {
 
     companion object Phases {
+        /**
+         * The earliest phase that happens before any other
+         */
+        val Before = PipelinePhase("Before")
         /**
          * Send request to remote server
          */
