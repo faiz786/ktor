@@ -44,10 +44,12 @@ open class HttpRedirectTest(private val factory: HttpClientEngineFactory<*>) : T
     }
 
     @Test
-    fun redirectTest(): Unit = runBlocking {
-        HttpClient(factory) {
+    fun redirectTest(): Unit = clientTest(factory) {
+        config {
             install(HttpRedirect)
-        }.use { client ->
+        }
+
+        test { client ->
             client.get<HttpResponse>(port = serverPort).use {
                 assertEquals(HttpStatusCode.OK, it.status)
                 assertEquals("OK", it.readText())
@@ -56,10 +58,12 @@ open class HttpRedirectTest(private val factory: HttpClientEngineFactory<*>) : T
     }
 
     @Test
-    fun infinityRedirectTest() {
-        HttpClient(factory) {
+    fun infinityRedirectTest() = clientTest(factory) {
+        config {
             install(HttpRedirect)
-        }.use { client ->
+        }
+
+        test { client ->
             assertFails {
                 runBlocking {
                     client.get<HttpResponse>(path = "/infinity", port = serverPort)
@@ -69,16 +73,18 @@ open class HttpRedirectTest(private val factory: HttpClientEngineFactory<*>) : T
     }
 
     @Test
-    fun redirectWithCookiesTest() = runBlocking {
-        val client = HttpClient(factory) {
+    fun redirectWithCookiesTest() = clientTest(factory) {
+        config {
             install(HttpCookies)
             install(HttpRedirect)
         }
 
-        client.get<HttpResponse>(path = "/cookie", port = serverPort).use {
-            assertEquals("OK", it.readText())
-            val token = client.feature(HttpCookies)!!.get(it.call.request.url.host.toLowerCase(), "Token")!!
-            assertEquals("Hello", token.value)
+        test { client ->
+            client.get<HttpResponse>(path = "/cookie", port = serverPort).use {
+                assertEquals("OK", it.readText())
+                val token = client.feature(HttpCookies)!!.get(it.call.request.url.host.toLowerCase(), "Token")!!
+                assertEquals("Hello", token.value)
+            }
         }
     }
 }

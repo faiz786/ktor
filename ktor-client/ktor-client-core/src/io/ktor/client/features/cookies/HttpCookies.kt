@@ -5,7 +5,9 @@ import io.ktor.client.engine.*
 import io.ktor.client.features.*
 import io.ktor.client.features.cookies.HttpCookies.*
 import io.ktor.client.request.*
+import io.ktor.client.response.*
 import io.ktor.http.*
+import io.ktor.pipeline.*
 import io.ktor.util.*
 
 /**
@@ -55,23 +57,20 @@ class HttpCookies(private val storage: CookiesStorage) {
         override val key: AttributeKey<HttpCookies> = AttributeKey("HttpCookies")
 
         override fun install(feature: HttpCookies, scope: HttpClient) {
-            scope.sendPipeline.intercept(HttpSendChain.State) { execute, request ->
-                val host = request.url.host.toLowerCase()
+            scope.sendPipeline.intercept(HttpSendPipeline.State) {
+                val host = context.url.host.toLowerCase()
 
-                val requestWithCookies = feature.get(host)?.let { cookies ->
-                    HttpRequestBuilder().apply {
-                        takeFrom(request)
+                val cookies = feature.get(host) ?: return@intercept
+                with(context) {
+                    cookies.forEach { _, cookie ->
+                        header(HttpHeaders.Cookie, renderSetCookieHeader(cookie))
+                    }
+                }
+            }
 
-                        headers {
-                            cookies.forEach { (_, cookie) -> append(HttpHeaders.Cookie, renderSetCookieHeader(cookie)) }
-                        }
-                    }.build()
-                } ?: request
-
-                val call = execute(requestWithCookies)
-                call.response.setCookie().forEach { feature.storage.addCookie(host, it) }
-
-                return@intercept call
+            scope.receivePipeline.intercept(HttpReceivePipeline.State) { response ->
+                val host = context.request.url.host.toLowerCase()
+                response.setCookie().forEach { feature.storage.addCookie(host, it) }
             }
 
         }

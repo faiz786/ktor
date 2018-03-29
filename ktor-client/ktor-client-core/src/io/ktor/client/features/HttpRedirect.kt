@@ -29,14 +29,14 @@ class HttpRedirect(
 
         override fun install(feature: HttpRedirect, scope: HttpClient) {
             scope.requestPipeline.insertPhaseBefore(HttpRequestPipeline.Send, Redirect)
-            scope.requestPipeline.intercept(Redirect) {
+            scope.requestPipeline.intercept(Redirect) { body ->
                 repeat(feature.maxJumps) {
-                    val call = scope.sendPipeline.execute(context, Unit) as HttpClientCall
+                    val call = scope.sendPipeline.execute(context, body) as HttpClientCall
 
                     if (!call.response.status.isRedirect()) {
-                        proceedWith(call)
                         finish()
-                        return@repeat
+                        proceedWith(call)
+                        return@intercept
                     }
 
                     val location = call.response.headers[HttpHeaders.Location]

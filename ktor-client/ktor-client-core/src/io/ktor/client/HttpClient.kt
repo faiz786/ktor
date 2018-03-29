@@ -35,9 +35,8 @@ class HttpClient private constructor(
      */
     val requestPipeline = HttpRequestPipeline().apply {
         // default send scenario
-        intercept(HttpRequestPipeline.Send) { builder ->
-            val call = sendPipeline.execute(context, TODO()) as HttpClientCall
-            proceedWith(receivePipeline.execute(call, call.response))
+        intercept(HttpRequestPipeline.Send) { content ->
+            proceedWith(sendPipeline.execute(context, content))
         }
     }
 
@@ -50,13 +49,19 @@ class HttpClient private constructor(
      * Pipeline used for sending the request
      */
     val sendPipeline = HttpSendPipeline().apply {
-        intercept(HttpSendPipeline.Engine) {
+        intercept(HttpSendPipeline.Engine) { content ->
             val call = HttpClientCall(this@HttpClient)
-            val (request, response) = engine.execute(call, context.build())
+            val requestData = HttpRequestBuilder().apply {
+                takeFrom(context)
+                body = content
+            }.build()
+
+            val (request, response) = engine.execute(call, requestData)
             call.request = request
             call.response = response
 
-            proceedWith(call)
+            val receivedCall = receivePipeline.execute(call, call.response).call
+            proceedWith(receivedCall)
         }
     }
 

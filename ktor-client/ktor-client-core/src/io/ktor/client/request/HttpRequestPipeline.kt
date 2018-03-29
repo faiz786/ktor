@@ -40,13 +40,16 @@ class HttpRequestPipeline : Pipeline<Any, HttpRequestBuilder>(Before, State, Tra
     }
 }
 
-class HttpSendPipeline : Pipeline<Any, HttpRequestBuilder>(Before, Engine) {
+class HttpSendPipeline : Pipeline<Any, HttpRequestBuilder>(Before, State, Engine) {
 
     companion object Phases {
         /**
          * The earliest phase that happens before any other
          */
         val Before = PipelinePhase("Before")
+
+        val State = PipelinePhase("State")
+
         /**
          * Send request to remote server
          */
